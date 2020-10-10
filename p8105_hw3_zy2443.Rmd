@@ -1,0 +1,137 @@
+---
+title: "homework 3"
+author: Zihan Yu
+output: github_document
+---
+
+```{r}
+library(tidyverse)
+library(p8105.datasets)
+```
+
+# Problem 1
+```{r}
+data("instacart")
+
+instacart %>%
+  count(aisle) %>%
+  arrange(desc(n))
+```
+
+```{r}
+instacart %>%
+  count(aisle) %>%
+  filter(n > 10000) %>%
+  mutate(
+    aisle = factor(aisle),
+    aisle = fct_reorder(aisle, n)
+  ) %>%
+  ggplot(aes(x = aisle, y = n)) + 
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+```
+
+```{r}
+instacart %>%
+  filter(aisle %in% c("baking ingredients", "dog food care", "packaged vegetables fruits")) %>%
+  group_by(aisle) %>%
+  count(product_name) %>%
+  mutate(rank = min_rank(desc(n))) %>%
+  filter(rank < 4) %>%
+  arrange(rank) %>%
+  knitr::kable()
+```
+
+```{r}
+instacart %>%
+  filter(product_name %in% c("Pink Lady Apples", "Coffee Ice Cream")) %>%
+  group_by(product_name, order_dow) %>%
+  summarize(mean_hour = mean(order_hour_of_day)) %>%
+  pivot_wider(
+    names_from = order_dow,
+    values_from = mean_hour
+  )
+```
+
+# Problem 2
+```{r}
+accel <- read.csv("~/Documents/P8105_Data Science 1/p8105_hw3_zy2443/accel_data.csv")
+accel1 = 
+  pivot_longer(
+    accel, 
+    cols = starts_with("activity"),
+    names_to = "minute", 
+    values_to = "activity") %>%
+  mutate(minute = str_remove_all(minute, "activity."))
+accel1$minute <- as.numeric(accel1$minute)
+```
+This dataset shows a male's accelerometer data over 5 weeks. Variables are weeks, day_id, day, minute and activity. There are 5 columns and 50400 entries. Key varible is activity because activity counts for each minute of a 24-hour day starting at midnight.
+
+```{r}
+accel2 = aggregate(accel1$activity, by = list(accel1$day_id), sum)
+names(accel2)[1]= "day_id"
+names(accel2)[2]= "total_activity"
+```
+According to the table, the male has obvious less activity time in several days.
+
+```{r}
+library(ggridges)
+accel3 = aggregate(accel1$activity, by = list(accel1$day_id,accel1$day), sum)
+names(accel3)[1]= "day_id"
+names(accel3)[2]= "day_of_week"
+names(accel3)[3]= "total_activity"
+ggplot(accel3, aes(x = day_id, y = total_activity)) + 
+  geom_point(aes(color = day_of_week))
+```
+According to the plot, the male have more activity time on weekdays and less activity time on weekends.
+
+# Problem 3
+```{r}
+data("ny_noaa")
+summary(ny_noaa)
+nrow(ny_noaa)
+```
+This dataset contains five core variables for all New York state weather stations from January 1, 1981 through December 31, 2010. Five core variables are precipitation, snowfall, snow depth, max temperature and min temprature. The dataset has 7 variables: id, date, prcp, snow, snwd, tmax and tmin. There are 2595176 rows and 7 columns. The miss of sunny day and cloudy day can be an issue because many days may have neither precipitation nor snow. Also, tmax and tmin are missing.
+
+```{r}
+library(lubridate)
+ny_noaa1 = ny_noaa %>% 
+  mutate(date = ymd(date)) %>% 
+  mutate_at(vars(date), funs(year, month, day))
+
+names(ny_noaa1)[3] = "prcp_tenths_of_mm"
+names(ny_noaa1)[4] = "snow_mm"
+names(ny_noaa1)[5] = "snwd_mm"
+
+ny_noaa1 %>%
+  count(snow_mm) %>%
+  mutate(rank = min_rank(desc(n)))
+```
+The most commonly observed value in snowfall is 0 because most days don't have snow and snow only appear in winters.
+
+```{r}
+ny_noaa2 = ny_noaa1 %>%
+  filter(month %in% c(1, 7)) %>%
+  drop_na(tmax)
+ny_noaa2$tmax <- as.numeric(ny_noaa2$tmax)
+
+ny_noaa3 = aggregate(ny_noaa2$tmax, by = list(ny_noaa2$year,ny_noaa2$month), mean)
+names(ny_noaa3)[1]= "year"
+names(ny_noaa3)[2]= "month"
+names(ny_noaa3)[3]= "mean_tmax"
+
+ggplot(ny_noaa3, aes(x = year, y = mean(mean_tmax))) + 
+  geom_point(aes(color = month))
+
+```
+
+```{r}
+ny_noaa4 = ny_noaa2 %>%
+  select(6:8) %>%
+  group_by(year)
+aggregate(.~ year, data = ny_noaa4, mean, na.rm=TRUE)
+ggplot(ny_noaa4, aes(x = year, y = name)) + 
+  geom_density_ridges(scale = .85)
+```
+
+
